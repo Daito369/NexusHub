@@ -5,6 +5,9 @@
 <!DOCTYPE html>
 <html lang="ja" data-theme="<?!= __initialThemeHint === 'dark' ? 'dark' : 'light' ?>" data-theme-mode="<?!= __initialThemeMode ?>" data-timer-ready="<?!= __timerReady ? 'true' : 'false' ?>">
 <head>
+  <? var __timerBaseUrl = (viewModel && viewModel.timerUrl) ? viewModel.timerUrl : ''; ?>
+  <? var __initialThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
+  <? var __timerReady = __timerBaseUrl && __timerBaseUrl.length > 0; ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NexusHub - 統合ワークスペースポータル</title>
@@ -50,8 +53,7 @@
       --transition-duration: 180ms;
     }
 
-    html[data-theme="dark"],
-    body[data-theme="dark"] {
+    [data-theme="dark"] {
       --md-sys-color-primary: #d0bcff;
       --md-sys-color-on-primary: #381e72;
       --md-sys-color-primary-container: #4f378b;
@@ -216,7 +218,6 @@
       border-color: transparent;
     }
 
-    html[data-timer-ready="false"] .nav-btn.timer,
     body[data-timer-ready="false"] .nav-btn.timer {
       opacity: 0.65;
       cursor: progress;
@@ -2440,9 +2441,461 @@
         grid-template-columns: 1fr;
       }
     }
+
+    :root {
+      color-scheme: light;
+      --md-sys-color-primary: #6750A4;
+      --md-sys-color-on-primary: #ffffff;
+      --md-sys-color-secondary: #625B71;
+      --md-sys-color-on-secondary: #ffffff;
+      --md-sys-color-tertiary: #7D5260;
+      --md-sys-color-on-tertiary: #ffffff;
+      --md-sys-color-surface: #fef7ff;
+      --md-sys-color-surface-container-low: #f7f2fa;
+      --md-sys-color-surface-container: #f3edf7;
+      --md-sys-color-surface-container-high: #ece6f0;
+      --md-sys-color-outline: #79747e;
+      --md-sys-color-outline-variant: #cac4d0;
+      --md-sys-color-on-surface: #1d1b20;
+      --md-sys-color-on-surface-variant: #49454f;
+      --md-sys-color-shadow: rgba(29, 27, 32, 0.08);
+      --md-sys-color-error: #B3261E;
+    }
+
+    body {
+      background: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      padding: 24px;
+      padding-bottom: 80px;
+      transition: background 0.3s ease;
+    }
+
+    header {
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      box-shadow: 0 12px 36px var(--md-sys-color-shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    h1 {
+      color: var(--md-sys-color-on-surface);
+      font-size: 26px;
+      letter-spacing: 0.02em;
+    }
+
+    .logo {
+      color: var(--md-sys-color-primary);
+      background: none;
+      -webkit-text-fill-color: var(--md-sys-color-primary);
+    }
+
+    .nav-buttons {
+      gap: 12px;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 6px 18px var(--md-sys-color-shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(103, 80, 164, 0.24);
+    }
+
+    .nav-btn:focus-visible {
+      outline: 3px solid rgba(103, 80, 164, 0.3);
+      outline-offset: 2px;
+    }
+
+    .nav-btn.gemini {
+      background: var(--md-sys-color-tertiary);
+    }
+
+    .nav-btn.gmail {
+      background: var(--md-sys-color-primary);
+    }
+
+    .nav-btn.chat {
+      background: var(--md-sys-color-secondary);
+    }
+
+    .nav-btn.calendar {
+      background: #386A20;
+    }
+
+    .nav-btn.drive {
+      background: #006876;
+    }
+
+    .nav-btn.timer {
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-primary);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      box-shadow: none;
+    }
+
+    .nav-btn.timer:hover {
+      box-shadow: 0 6px 18px var(--md-sys-color-shadow);
+    }
+
+    .badge {
+      background: var(--md-sys-color-error);
+      box-shadow: none;
+      border-radius: 999px;
+    }
+
+    .summary-dashboard {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      box-shadow: 0 10px 30px var(--md-sys-color-shadow);
+      padding: 20px;
+      border-radius: 28px;
+      gap: 20px;
+    }
+
+    .summary-item {
+      background: var(--md-sys-color-surface);
+      border: 1px solid transparent;
+      border-radius: 20px;
+      padding: 18px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .summary-item:hover {
+      transform: translateY(-2px);
+      border-color: var(--md-sys-color-outline-variant);
+      box-shadow: 0 12px 28px var(--md-sys-color-shadow);
+    }
+
+    .summary-icon {
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-primary);
+      border-radius: 16px;
+    }
+
+    .summary-icon.event {
+      color: #386A20;
+    }
+
+    .summary-icon.next {
+      color: var(--md-sys-color-tertiary);
+    }
+
+    .summary-icon.chat {
+      color: var(--md-sys-color-secondary);
+    }
+
+    .summary-label {
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .summary-value {
+      color: var(--md-sys-color-on-surface);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .summary-unit {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .summary-subtext {
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .content-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .utility-column {
+      gap: 24px;
+    }
+
+    .info-card {
+      background: var(--md-sys-color-surface);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 24px;
+      box-shadow: 0 18px 36px var(--md-sys-color-shadow);
+      padding: 24px;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .info-card:hover {
+      box-shadow: 0 24px 44px rgba(29, 27, 32, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .highlight-card {
+      box-shadow: 0 0 0 3px rgba(103, 80, 164, 0.35), 0 24px 44px rgba(29, 27, 32, 0.12);
+    }
+
+    .info-card h2 {
+      color: var(--md-sys-color-on-surface);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+
+    .calendar-card {
+      min-height: 340px;
+    }
+
+    .todo-card {
+      min-height: 260px;
+    }
+
+    .links-actions button {
+      background: var(--md-sys-color-surface-container-high) !important;
+      color: var(--md-sys-color-on-surface) !important;
+      border-radius: 999px !important;
+      border: 1px solid var(--md-sys-color-outline-variant) !important;
+      box-shadow: none !important;
+      padding: 8px 14px !important;
+      font-weight: 600 !important;
+    }
+
+    .links-actions button:hover {
+      background: var(--md-sys-color-surface-container) !important;
+    }
+
+    .folder-header, .custom-link-item {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .folder-header:hover, .custom-link-item:hover {
+      background: var(--md-sys-color-surface-container);
+    }
+
+    .calendar-header button {
+      color: var(--md-sys-color-primary);
+    }
+
+    .today-btn {
+      background: var(--md-sys-color-primary) !important;
+      color: var(--md-sys-color-on-primary) !important;
+    }
+
+    .add-event-quick-btn {
+      background: var(--md-sys-color-secondary) !important;
+      color: var(--md-sys-color-on-secondary) !important;
+    }
+
+    .add-todo-btn {
+      background: var(--md-sys-color-primary);
+      box-shadow: none;
+    }
+
+    .email-list .email-item {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .email-item.unread {
+      border-color: var(--md-sys-color-primary);
+    }
+
+    .email-item:hover {
+      background: var(--md-sys-color-surface-container);
+    }
+
+    .email-message {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 18px;
+    }
+
+    .email-message-header {
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .gmail-reply-banner {
+      background: var(--md-sys-color-surface-container);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 16px;
+    }
+
+    .gmail-reply-btn {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    .gmail-reply-btn:hover {
+      background: #7f67be;
+    }
+
+    .no-unread-message {
+      background: var(--md-sys-color-surface-container);
+      border: 1px dashed var(--md-sys-color-outline-variant);
+      border-radius: 18px;
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .no-unread-message .material-icons {
+      color: var(--md-sys-color-primary);
+    }
+
+    .chat-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #chatList {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .chat-item {
+      background: var(--md-sys-color-surface-container-low);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 20px;
+      padding: 16px;
+      transition: background 0.2s ease, border 0.2s ease, transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .chat-item:hover {
+      background: var(--md-sys-color-surface-container);
+      border-color: var(--md-sys-color-outline);
+      transform: translateY(-1px);
+    }
+
+    .chat-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 600;
+      color: var(--md-sys-color-on-surface);
+      margin-bottom: 8px;
+    }
+
+    .chat-snippet {
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .chat-meta {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: 12px;
+    }
+
+    .chat-open-btn {
+      background: none;
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: var(--md-sys-color-primary);
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .chat-open-btn:hover {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      border-color: var(--md-sys-color-primary);
+    }
+
+    footer {
+      background: var(--md-sys-color-surface-container);
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      color: var(--md-sys-color-on-surface-variant);
+    }
+
+    .modal-content {
+      background: var(--md-sys-color-surface);
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .modal-header {
+      border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .btn-primary {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    .btn-secondary {
+      background: var(--md-sys-color-surface-container-low);
+      color: var(--md-sys-color-on-surface);
+      border: 1px solid var(--md-sys-color-outline-variant);
+    }
+
+    .btn-secondary:hover {
+      background: var(--md-sys-color-surface-container);
+    }
+
+    .btn-danger {
+      background: var(--md-sys-color-error);
+    }
+
+    @media (max-width: 1200px) {
+      .main-content {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
-<body data-theme="<?!= __initialThemeHint === 'dark' ? 'dark' : 'light' ?>" data-theme-mode="<?!= __initialThemeMode ?>" data-timer-ready="<?!= __timerReady ? 'true' : 'false' ?>">
+<body data-theme="light" data-theme-mode="system" data-timer-ready="<?!= __timerReady ? 'true' : 'false' ?>">
   <div class="container">
     <header>
       <div class="header-left">
@@ -2876,51 +3329,6 @@
     let timerUrlError = null;
     let timerUrlRequested = false;
 
-    function setThemeAttributes(themeValue, modeValue) {
-      const normalizedTheme = themeValue === 'dark' ? 'dark' : 'light';
-      const normalizedMode = (modeValue === 'dark' || modeValue === 'light')
-        ? modeValue
-        : (modeValue === THEME_SYSTEM_VALUE ? THEME_SYSTEM_VALUE : normalizedTheme);
-
-      if (document.documentElement) {
-        document.documentElement.setAttribute('data-theme', normalizedTheme);
-        document.documentElement.setAttribute('data-theme-mode', normalizedMode);
-      }
-
-      if (document.body) {
-        document.body.setAttribute('data-theme', normalizedTheme);
-        document.body.setAttribute('data-theme-mode', normalizedMode);
-      }
-    }
-
-    function getThemeModeAttribute() {
-      if (document.body) {
-        const bodyMode = document.body.getAttribute('data-theme-mode');
-        if (bodyMode) {
-          return bodyMode;
-        }
-      }
-
-      if (document.documentElement) {
-        const rootMode = document.documentElement.getAttribute('data-theme-mode');
-        if (rootMode) {
-          return rootMode;
-        }
-      }
-
-      return THEME_SYSTEM_VALUE;
-    }
-
-    function setTimerReadyAttribute(isReady) {
-      const value = isReady ? 'true' : 'false';
-      if (document.documentElement) {
-        document.documentElement.setAttribute('data-timer-ready', value);
-      }
-      if (document.body) {
-        document.body.setAttribute('data-timer-ready', value);
-      }
-    }
-
     function resolvePreferredTheme(mode) {
       if (mode === 'dark' || mode === 'light') {
         return mode;
@@ -2933,7 +3341,8 @@
       const config = options || {};
       const normalized = (mode === 'dark' || mode === 'light' || mode === THEME_SYSTEM_VALUE) ? mode : THEME_SYSTEM_VALUE;
       const resolvedTheme = resolvePreferredTheme(normalized);
-      setThemeAttributes(resolvedTheme, normalized);
+      document.body.setAttribute('data-theme', resolvedTheme);
+      document.body.setAttribute('data-theme-mode', normalized);
       updateThemeToggle(resolvedTheme, normalized);
 
       if (config.persist !== false) {
@@ -3062,13 +3471,11 @@
     if (window.matchMedia) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       mediaQuery.addEventListener('change', function(event) {
-        const currentMode = getThemeModeAttribute();
+        const currentMode = document.body.getAttribute('data-theme-mode') || THEME_SYSTEM_VALUE;
         if (currentMode === THEME_SYSTEM_VALUE) {
           applyTheme(currentMode, { persist: false });
         } else {
-          const resolved = resolvePreferredTheme(currentMode);
-          updateThemeToggle(resolved, currentMode);
-          setThemeAttributes(resolved, currentMode);
+          updateThemeToggle(event.matches ? 'dark' : 'light', currentMode);
         }
       });
     }
@@ -3084,7 +3491,7 @@
     setupThemeMenu();
 
     if (timerLaunchUrl) {
-      setTimerReadyAttribute(true);
+      document.body.setAttribute('data-timer-ready', 'true');
     } else {
       ensureTimerUrl();
     }
@@ -3113,7 +3520,7 @@
 
     function ensureTimerUrl() {
       if (timerLaunchUrl) {
-        setTimerReadyAttribute(true);
+        document.body.setAttribute('data-timer-ready', 'true');
         return;
       }
 
@@ -3126,19 +3533,19 @@
       }
 
       timerUrlRequested = true;
-      setTimerReadyAttribute(false);
+      document.body.setAttribute('data-timer-ready', 'false');
 
       google.script.run
         .withSuccessHandler(function(url) {
           timerLaunchUrl = url;
           timerUrlError = null;
           timerUrlRequested = false;
-          setTimerReadyAttribute(Boolean(url));
+          document.body.setAttribute('data-timer-ready', url ? 'true' : 'false');
         })
         .withFailureHandler(function(error) {
           timerUrlError = error;
           timerUrlRequested = false;
-          setTimerReadyAttribute(Boolean(timerLaunchUrl));
+          document.body.setAttribute('data-timer-ready', timerLaunchUrl ? 'true' : 'false');
           console.error('タイマーURLの取得に失敗しました', error);
         })
         .getTimerUrl();
@@ -3188,25 +3595,10 @@
     setInterval(updateClock, 1000);
 
     function openTimerWindow() {
-      if (!timerLaunchUrl) {
-        ensureTimerUrl();
-        const errorMessage = timerUrlError && timerUrlError.message ? String(timerUrlError.message) : '';
-        const fallback = timerUrlError
-          ? 'タイマーURLの取得に失敗しました。デプロイ設定を確認してください。'
-          : 'タイマーを準備しています。数秒後にもう一度お試しください。';
-        alert(errorMessage ? fallback + '\n' + errorMessage : fallback);
-        return;
-      }
-
-      const mode = getThemeModeAttribute();
-      const effectiveTheme = resolvePreferredTheme(mode);
-      const timerUrl = buildTimerUrlForTheme(timerLaunchUrl, effectiveTheme);
-      const features = 'width=420,height=560,resizable=yes,scrollbars=yes,noopener=yes,noreferrer=yes';
-
-      const timerWindow = window.open(timerUrl, '_blank', features);
-      if (!timerWindow) {
-        alert('ポップアップがブロックされました。許可してください。');
-      }
+      const timerUrl = new URL(window.location.href);
+      timerUrl.searchParams.set('page', 'timer');
+      timerUrl.hash = '';
+      window.open(timerUrl.toString(), '_blank', 'noopener=yes,noreferrer=yes,width=420,height=520');
     }
 
     function scrollToChat() {
@@ -3450,6 +3842,10 @@
           if (emailSummarySubtitle) {
             emailSummarySubtitle.textContent = 'メール情報の取得に失敗しました';
           }
+          const emailSummarySubtitle = document.getElementById('summaryLatestEmail');
+          if (emailSummarySubtitle) {
+            emailSummarySubtitle.textContent = 'メール情報の取得に失敗しました';
+          }
         })
         .getGmailData();
     }
@@ -3480,7 +3876,7 @@
 
           if (!chatData || !chatData.success) {
             if (chatList) {
-              chatList.innerHTML = '<p style="text-align: center; color: var(--md-sys-color-error); padding: 20px;">チャット情報の取得に失敗しました</p>';
+              chatList.innerHTML = '<p style="text-align: center; color: #B3261E; padding: 20px;">チャット情報の取得に失敗しました</p>';
             }
             if (summaryLatestElement) {
               summaryLatestElement.textContent = 'チャット情報の取得に失敗しました';
@@ -3540,7 +3936,7 @@
         .withFailureHandler(function() {
           const chatList = document.getElementById('chatList');
           if (chatList) {
-            chatList.innerHTML = '<p style="text-align: center; color: var(--md-sys-color-error); padding: 20px;">チャット情報の取得に失敗しました</p>';
+            chatList.innerHTML = '<p style="text-align: center; color: #B3261E; padding: 20px;">チャット情報の取得に失敗しました</p>';
           }
           const summaryLatestElement = document.getElementById('summaryChatLatest');
           if (summaryLatestElement) {

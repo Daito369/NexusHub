@@ -1,7 +1,5 @@
-<? var __timerThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
-<? var __timerInitialMode = (__timerThemeHint === 'dark' || __timerThemeHint === 'light') ? __timerThemeHint : 'system'; ?>
 <!DOCTYPE html>
-<html lang="ja" data-theme="<?!= __timerThemeHint === 'dark' ? 'dark' : 'light' ?>" data-theme-mode="<?!= __timerInitialMode ?>">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21,21 +19,6 @@
       --md-shadow: rgba(29, 27, 32, 0.14);
       --md-success: #2e7d32;
       --md-error: #b3261e;
-    }
-
-    html[data-theme="dark"],
-    body[data-theme="dark"] {
-      color-scheme: dark;
-      --md-primary: #d0bcff;
-      --md-on-primary: #381e72;
-      --md-surface: #1d1b20;
-      --md-surface-container: #211f26;
-      --md-outline: #938f99;
-      --md-on-surface: #e6e0e9;
-      --md-on-surface-variant: #cac4d0;
-      --md-shadow: rgba(0, 0, 0, 0.4);
-      --md-success: #81c995;
-      --md-error: #f2b8b5;
     }
 
     * {
@@ -234,7 +217,7 @@
     }
   </style>
 </head>
-<body data-theme="<?!= __timerThemeHint === 'dark' ? 'dark' : 'light' ?>" data-theme-mode="<?!= __timerInitialMode ?>">
+<body>
   <main class="timer-surface">
     <div class="timer-header">
       <h1><span class="material-icons">timer</span>カスタムタイマー</h1>
@@ -286,74 +269,6 @@
   </main>
 
   <script>
-    const THEME_STORAGE_KEY = 'nexushub-theme';
-    const THEME_SYSTEM_VALUE = 'system';
-    const LAUNCHED_THEME = <?!= JSON.stringify(__timerThemeHint || '') ?>;
-
-    function getStoredThemeMode() {
-      try {
-        return localStorage.getItem(THEME_STORAGE_KEY);
-      } catch (err) {
-        console.warn('テーマ情報の取得に失敗しました', err);
-        return null;
-      }
-    }
-
-    function setThemeAttributes(themeValue, modeValue) {
-      const normalizedTheme = themeValue === 'dark' ? 'dark' : 'light';
-      const normalizedMode = (modeValue === 'dark' || modeValue === 'light')
-        ? modeValue
-        : (modeValue === THEME_SYSTEM_VALUE ? THEME_SYSTEM_VALUE : normalizedTheme);
-
-      if (document.documentElement) {
-        document.documentElement.setAttribute('data-theme', normalizedTheme);
-        document.documentElement.setAttribute('data-theme-mode', normalizedMode);
-      }
-
-      if (document.body) {
-        document.body.setAttribute('data-theme', normalizedTheme);
-        document.body.setAttribute('data-theme-mode', normalizedMode);
-      }
-    }
-
-    function syncTheme(preferred) {
-      let resolved = preferred;
-      let modeAttribute = preferred;
-
-      if (resolved !== 'dark' && resolved !== 'light') {
-        const stored = getStoredThemeMode();
-        if (stored === 'dark' || stored === 'light') {
-          resolved = stored;
-          modeAttribute = stored;
-        } else {
-          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          resolved = prefersDark ? 'dark' : 'light';
-          modeAttribute = THEME_SYSTEM_VALUE;
-        }
-      }
-
-      setThemeAttributes(resolved, modeAttribute);
-    }
-
-    syncTheme(LAUNCHED_THEME);
-
-    window.addEventListener('storage', function(event) {
-      if (event.key === THEME_STORAGE_KEY) {
-        const mode = event.newValue;
-        syncTheme(mode || THEME_SYSTEM_VALUE);
-      }
-    });
-
-    if (window.matchMedia) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQuery.addEventListener('change', function() {
-        const stored = getStoredThemeMode();
-        if (!stored || stored === THEME_SYSTEM_VALUE) {
-          syncTheme(THEME_SYSTEM_VALUE);
-        }
-      });
-    }
-
     const hoursInput = document.getElementById('hoursInput');
     const minutesInput = document.getElementById('minutesInput');
     const secondsInput = document.getElementById('secondsInput');
