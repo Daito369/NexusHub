@@ -1,7 +1,34 @@
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  const page = e && e.parameter && e.parameter.page ? e.parameter.page : '';
+  const templateName = page === 'timer' ? 'Timer' : 'Index';
+  const template = HtmlService.createTemplateFromFile(templateName);
+
+  const baseUrl = getWebAppBaseUrl_();
+  template.viewModel = {
+    timerUrl: baseUrl ? baseUrl + '?page=timer' : '',
+    theme: e && e.parameter && e.parameter.theme ? e.parameter.theme : ''
+  };
+
+  return template.evaluate()
     .setTitle('NexusHub - 統合ワークスペースポータル')
     .setFaviconUrl('https://img.icons8.com/fluency/96/hub.png');
+}
+
+function getTimerUrl() {
+  const baseUrl = getWebAppBaseUrl_();
+  if (!baseUrl) {
+    throw new Error('WebアプリのURLを取得できませんでした。デプロイ設定を確認してください。');
+  }
+  return baseUrl + '?page=timer';
+}
+
+function getWebAppBaseUrl_() {
+  try {
+    return ScriptApp.getService().getUrl();
+  } catch (error) {
+    Logger.log('Failed to resolve web app URL: ' + error.toString());
+    return '';
+  }
 }
 
 function getUserInfo() {
@@ -88,6 +115,382 @@ function getGmailData() {
       error: error.toString()
     };
   }
+}
+
+function getChatData() {
+  try {
+    const chatApiResult = fetchChatDataFromChatApi_();
+    if (chatApiResult) {
+      return chatApiResult;
+    }
+  } catch (apiError) {
+    Logger.log('Primary Chat API retrieval failed: ' + apiError.toString());
+  }
+
+  try {
+    const gmailFallback = fetchChatDataFromGmail_();
+    if (gmailFallback) {
+      return gmailFallback;
+    }
+  } catch (fallbackError) {
+    Logger.log('Gmail fallback chat retrieval failed: ' + fallbackError.toString());
+  }
+
+  return {
+    success: false,
+    unreadCount: 0,
+    conversations: [],
+    error: 'チャット情報を取得できませんでした。権限とAPI設定を確認してください。'
+  };
+}
+
+function fetchChatDataFromChatApi_() {
+  const token = ScriptApp.getOAuthToken();
+  if (!token) {
+    return null;
+  }
+
+  const baseOptions = {
+    headers: {
+      Authorization: 'Bearer ' + token,
+      Accept: 'application/json'
+    },
+    muteHttpExceptions: true
+  };
+
+  const spaces = [];
+  let pageToken = '';
+  do {
+    const url = 'https://chat.googleapis.com/v1/spaces?view=FULL&pageSize=100' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+    const response = UrlFetchApp.fetch(url, baseOptions);
+    const status = response.getResponseCode();
+    if (status === 403 || status === 404) {
+      throw new Error('Google Chat API へのアクセスが拒否されました: ' + response.getContentText());
+    }
+    if (status < 200 || status >= 300) {
+      throw new Error('Google Chat API が応答コード ' + status + ' を返しました: ' + response.getContentText());
+    }
+
+    const payload = JSON.parse(response.getContentText());
+    if (payload.spaces && payload.spaces.length) {
+      Array.prototype.push.apply(spaces, payload.spaces);
+    }
+    pageToken = payload.nextPageToken || '';
+  } while (pageToken && spaces.length < 300);
+
+  const conversations = [];
+  let unreadTotal = 0;
+
+  spaces.forEach(function(space) {
+    if (!space || !space.name) {
+      return;
+    }
+    if (space.singleUserBotDm) {
+      return;
+    }
+
+    const readState = fetchChatSpaceReadState_(space.name, baseOptions);
+    const unreadThreads = readState && readState.unreadThreadCount ? Number(readState.unreadThreadCount) : 0;
+    if (!unreadThreads) {
+      return;
+    }
+
+    const latestMessage = fetchLatestUnreadChatMessage_(space.name, baseOptions);
+    const conversation = buildChatConversation_(space, latestMessage, unreadThreads);
+    if (conversation) {
+      unreadTotal += unreadThreads;
+      conversations.push(conversation);
+    }
+  });
+
+  conversations.sort(function(a, b) {
+    return b.lastUpdated - a.lastUpdated;
+  });
+
+  return {
+    success: true,
+    unreadCount: unreadTotal,
+    conversations: conversations.slice(0, 20)
+  };
+}
+
+function fetchChatSpaceReadState_(spaceName, baseOptions) {
+  try {
+    const url = 'https://chat.googleapis.com/v1/users/me/' + spaceName + '/spaceThreadReadState';
+    const response = UrlFetchApp.fetch(url, baseOptions);
+    if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
+      return JSON.parse(response.getContentText());
+    }
+  } catch (error) {
+    Logger.log('Failed to fetch Chat read state for ' + spaceName + ': ' + error.toString());
+  }
+  return { unreadThreadCount: 0 };
+}
+
+function fetchLatestUnreadChatMessage_(spaceName, baseOptions) {
+  const searchUrl = 'https://chat.googleapis.com/v1/' + spaceName + '/messages:search';
+  const searchOptions = Object.assign({}, baseOptions, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      query: 'has:unread',
+      orderBy: 'create_time desc',
+      pageSize: 1
+    })
+  });
+
+  try {
+    const searchResponse = UrlFetchApp.fetch(searchUrl, searchOptions);
+    if (searchResponse.getResponseCode() >= 200 && searchResponse.getResponseCode() < 300) {
+      const payload = JSON.parse(searchResponse.getContentText());
+      if (payload.messages && payload.messages.length) {
+        return payload.messages[0];
+      }
+    }
+  } catch (error) {
+    Logger.log('Chat message search failed for ' + spaceName + ': ' + error.toString());
+  }
+
+  try {
+    const listUrl = 'https://chat.googleapis.com/v1/' + spaceName + '/messages?pageSize=1&orderBy=createTime desc';
+    const listResponse = UrlFetchApp.fetch(listUrl, baseOptions);
+    if (listResponse.getResponseCode() >= 200 && listResponse.getResponseCode() < 300) {
+      const payload = JSON.parse(listResponse.getContentText());
+      if (payload.messages && payload.messages.length) {
+        return payload.messages[0];
+      }
+    }
+  } catch (listError) {
+    Logger.log('Chat message list fallback failed for ' + spaceName + ': ' + listError.toString());
+  }
+
+  return null;
+}
+
+function buildChatConversation_(space, message, unreadThreads) {
+  const displayName = deriveChatSpaceName_(space);
+  const permalink = buildChatPermalink_(space, message);
+  let author = 'メンバー';
+  let preview = '未読メッセージがあります';
+  let lastUpdated = new Date().getTime();
+
+  if (message) {
+    if (message.sender) {
+      author = message.sender.displayName || message.sender.email || author;
+    }
+
+    if (message.createTime) {
+      const parsed = Date.parse(message.createTime);
+      if (!isNaN(parsed)) {
+        lastUpdated = parsed;
+      }
+    }
+
+    if (message.text) {
+      preview = message.text;
+    } else if (message.formattedText) {
+      preview = message.formattedText;
+    } else if (message.argumentText) {
+      preview = message.argumentText;
+    } else if (message.cards && message.cards.length) {
+      preview = '[カード メッセージ]';
+    }
+  }
+
+  preview = preview.replace(/\s+/g, ' ').trim();
+  if (preview.length > 160) {
+    preview = preview.substring(0, 160) + '…';
+  }
+
+  return {
+    title: displayName + (unreadThreads > 1 ? ' · 未読' + unreadThreads + '件' : ''),
+    author: author,
+    preview: preview || '未読メッセージがあります',
+    lastUpdated: lastUpdated,
+    permalink: permalink
+  };
+}
+
+function deriveChatSpaceName_(space) {
+  if (space.displayName) {
+    return space.displayName;
+  }
+  if (space.spaceType === 'SPACE_TYPE_DIRECT_MESSAGE' || space.spaceType === 'DM') {
+    return 'ダイレクトメッセージ';
+  }
+  if (space.spaceType === 'SPACE_TYPE_GROUP_CHAT') {
+    return 'グループチャット';
+  }
+  return 'チャット';
+}
+
+function buildChatPermalink_(space, message) {
+  try {
+    const spaceId = space && space.name ? space.name.split('/')[1] : '';
+    if (!spaceId) {
+      return 'https://chat.google.com/';
+    }
+
+    let baseUrl = 'https://mail.google.com/chat/u/0/#chat/space/' + spaceId;
+    if (message && message.thread && message.thread.name) {
+      const threadId = message.thread.name.split('/').pop();
+      if (threadId) {
+        baseUrl += '/' + threadId;
+      }
+    }
+
+    return baseUrl;
+  } catch (error) {
+    Logger.log('Failed to build chat permalink: ' + error.toString());
+    return 'https://chat.google.com/';
+  }
+}
+
+function fetchChatDataFromGmail_() {
+  let conversations = [];
+  let unreadCount = 0;
+
+  if (typeof Gmail !== 'undefined' && Gmail.Users && Gmail.Users.Threads) {
+    let pageToken = null;
+    let fetched = [];
+
+    do {
+      const response = Gmail.Users.Threads.list('me', {
+        q: 'in:chats is:unread',
+        maxResults: 50,
+        pageToken: pageToken || undefined
+      });
+
+      if (response && response.threads) {
+        fetched = fetched.concat(response.threads);
+      }
+
+      pageToken = response && response.nextPageToken ? response.nextPageToken : null;
+    } while (pageToken && fetched.length < 50);
+
+    unreadCount = fetched.length;
+
+    fetched.slice(0, 50).forEach(function(threadSummary) {
+      try {
+        const threadDetail = Gmail.Users.Threads.get('me', threadSummary.id, {
+          format: 'full'
+        });
+
+        const messages = threadDetail.messages || [];
+        if (!messages.length) {
+          return;
+        }
+
+        const latestMessage = messages[messages.length - 1];
+        const headers = latestMessage.payload && latestMessage.payload.headers ? latestMessage.payload.headers : [];
+
+        function headerValue(name) {
+          const header = headers.find(function(h) {
+            return h.name === name;
+          });
+          return header ? header.value : '';
+        }
+
+        let author = headerValue('From') || headerValue('Sender');
+        const nameMatch = author && author.match(/^"?([^"<]+)"?\s*</);
+        if (nameMatch) {
+          author = nameMatch[1].trim();
+        } else {
+          const emailMatch = author && author.match(/<([^>]+)>/);
+          if (emailMatch) {
+            author = emailMatch[1];
+          }
+        }
+
+        const title = headerValue('Subject') || author || 'チャット';
+        let preview = (latestMessage.snippet || '').trim();
+        if (!preview && latestMessage.payload && latestMessage.payload.body && latestMessage.payload.body.data) {
+          preview = Utilities.newBlob(Utilities.base64Decode(latestMessage.payload.body.data)).getDataAsString();
+        }
+        preview = preview.replace(/\s+/g, ' ').trim();
+        if (preview.length > 140) {
+          preview = preview.substring(0, 140) + '…';
+        }
+
+        const timestamp = Number(latestMessage.internalDate) || new Date().getTime();
+        const permalink = 'https://mail.google.com/mail/u/0/#chat/' + threadSummary.id;
+
+        conversations.push({
+          title: title,
+          author: author || 'メンバー',
+          preview: preview || 'メッセージを取得できませんでした',
+          lastUpdated: timestamp,
+          permalink: permalink
+        });
+      } catch (threadError) {
+        Logger.log('Error parsing chat thread: ' + threadError.toString());
+      }
+    });
+  }
+
+  if (conversations.length === 0) {
+    const fallbackThreads = GmailApp.search('in:chats is:unread', 0, 50);
+    unreadCount = fallbackThreads.length;
+
+    fallbackThreads.forEach(function(thread) {
+      try {
+        const messages = thread.getMessages();
+        if (!messages || !messages.length) {
+          return;
+        }
+
+        const latestMessage = messages[messages.length - 1];
+        let author = latestMessage.getFrom();
+        const nameMatch = author && author.match(/^"?([^"<]+)"?\s*</);
+        if (nameMatch) {
+          author = nameMatch[1].trim();
+        } else {
+          const emailMatch = author && author.match(/<([^>]+)>/);
+          if (emailMatch) {
+            author = emailMatch[1];
+          }
+        }
+
+        let preview = '';
+        try {
+          preview = latestMessage.getPlainBody().replace(/\s+/g, ' ').trim();
+        } catch (err) {
+          preview = latestMessage.getSnippet() || '';
+        }
+
+        if (preview.length > 140) {
+          preview = preview.substring(0, 140) + '…';
+        }
+
+        let permalink = '';
+        try {
+          permalink = thread.getPermalink();
+        } catch (err) {
+          permalink = 'https://mail.google.com/mail/u/0/#chat/' + thread.getId();
+        }
+
+        conversations.push({
+          title: thread.getFirstMessageSubject() || author || 'チャット',
+          author: author || 'メンバー',
+          preview: preview || 'メッセージを取得できませんでした',
+          lastUpdated: latestMessage.getDate().getTime(),
+          permalink: permalink
+        });
+      } catch (fallbackError) {
+        Logger.log('Fallback chat parse error: ' + fallbackError.toString());
+      }
+    });
+  }
+
+  conversations.sort(function(a, b) {
+    return b.lastUpdated - a.lastUpdated;
+  });
+
+  return {
+    success: true,
+    unreadCount: unreadCount,
+    conversations: conversations.slice(0, 20)
+  };
 }
 
 function markThreadAsRead(threadId) {
