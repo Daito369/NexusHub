@@ -1,5 +1,8 @@
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  const page = e && e.parameter && e.parameter.page ? e.parameter.page : '';
+  const templateName = page === 'timer' ? 'Timer' : 'Index';
+
+  return HtmlService.createHtmlOutputFromFile(templateName)
     .setTitle('NexusHub - 統合ワークスペースポータル')
     .setFaviconUrl('https://img.icons8.com/fluency/96/hub.png');
 }
@@ -85,6 +88,82 @@ function getGmailData() {
       unreadCount: 0,
       latestEmails: [],
       showingUnreadOnly: false,
+      error: error.toString()
+    };
+  }
+}
+
+function getChatData() {
+  try {
+    const unreadChatThreads = GmailApp.search('is:unread is:chat', 0, 50);
+    const conversations = [];
+
+    unreadChatThreads.slice(0, 50).forEach(function(thread) {
+      const messages = thread.getMessages();
+      if (!messages || messages.length === 0) {
+        return;
+      }
+
+      const latestMessage = messages[messages.length - 1];
+
+      let author = latestMessage.getFrom();
+      const nameMatch = author && author.match(/^"?([^"<]+)"?\s*</);
+      if (nameMatch) {
+        author = nameMatch[1].trim();
+      } else {
+        const emailMatch = author && author.match(/<([^>]+)>/);
+        if (emailMatch) {
+          author = emailMatch[1];
+        }
+      }
+
+      let title = thread.getFirstMessageSubject();
+      if (!title && author) {
+        title = author;
+      }
+
+      let preview = '';
+      try {
+        const body = latestMessage.getPlainBody();
+        preview = body.replace(/\s+/g, ' ').trim();
+        if (preview.length > 120) {
+          preview = preview.substring(0, 120) + '…';
+        }
+      } catch (err) {
+        preview = 'メッセージを取得できませんでした';
+      }
+
+      let permalink = '';
+      try {
+        permalink = thread.getPermalink();
+      } catch (err) {
+        permalink = '';
+      }
+
+      conversations.push({
+        title: title || 'チャット',
+        author: author || 'メンバー',
+        preview: preview,
+        lastUpdated: latestMessage.getDate().getTime(),
+        permalink: permalink
+      });
+    });
+
+    conversations.sort(function(a, b) {
+      return b.lastUpdated - a.lastUpdated;
+    });
+
+    return {
+      success: true,
+      unreadCount: unreadChatThreads.length,
+      conversations: conversations.slice(0, 20)
+    };
+  } catch (error) {
+    Logger.log('Error fetching chat data: ' + error.toString());
+    return {
+      success: false,
+      unreadCount: 0,
+      conversations: [],
       error: error.toString()
     };
   }
