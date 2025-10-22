@@ -7,6 +7,23 @@ function doGet(e) {
     .setFaviconUrl('https://img.icons8.com/fluency/96/hub.png');
 }
 
+function getTimerUrl() {
+  const baseUrl = getWebAppBaseUrl_();
+  if (!baseUrl) {
+    throw new Error('WebアプリのURLを取得できませんでした。デプロイ設定を確認してください。');
+  }
+  return baseUrl + '?page=timer';
+}
+
+function getWebAppBaseUrl_() {
+  try {
+    return ScriptApp.getService().getUrl();
+  } catch (error) {
+    Logger.log('Failed to resolve web app URL: ' + error.toString());
+    return '';
+  }
+}
+
 function getUserInfo() {
   try {
     const user = Session.getActiveUser();
