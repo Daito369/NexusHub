@@ -1,5 +1,9 @@
+<? var __timerBaseUrl = (viewModel && viewModel.timerUrl) ? viewModel.timerUrl : ''; ?>
+<? var __initialThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
+<? var __timerReady = __timerBaseUrl && __timerBaseUrl.length > 0; ?>
+<? var __initialThemeMode = (__initialThemeHint === 'dark' || __initialThemeHint === 'light') ? __initialThemeHint : 'system'; ?>
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-theme="<?!= __initialThemeHint === 'dark' ? 'dark' : 'light' ?>" data-theme-mode="<?!= __initialThemeMode ?>" data-timer-ready="<?!= __timerReady ? 'true' : 'false' ?>">
 <head>
   <? var __timerBaseUrl = (viewModel && viewModel.timerUrl) ? viewModel.timerUrl : ''; ?>
   <? var __initialThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
