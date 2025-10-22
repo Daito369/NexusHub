@@ -1,7 +1,22 @@
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+function doGet(e) {
+  const page = e && e.parameter && e.parameter.page ? e.parameter.page : '';
+  const templateName = page === 'timer' ? 'Timer' : 'Index';
+
+  return HtmlService.createHtmlOutputFromFile(templateName)
     .setTitle('NexusHub - 統合ワークスペースポータル')
     .setFaviconUrl('https://img.icons8.com/fluency/96/hub.png');
+}
+
+function getTimerUrl() {
+  try {
+    const baseUrl = ScriptApp.getService().getUrl();
+    if (!baseUrl) {
+      throw new Error('WebアプリのURLを取得できませんでした。');
+    }
+    return baseUrl + '?page=timer';
+  } catch (error) {
+    throw new Error('タイマーURLの取得に失敗しました: ' + error.message);
+  }
 }
 
 function getUserInfo() {
@@ -85,6 +100,163 @@ function getGmailData() {
       unreadCount: 0,
       latestEmails: [],
       showingUnreadOnly: false,
+      error: error.toString()
+    };
+  }
+}
+
+function getChatData() {
+  try {
+    let conversations = [];
+    let unreadCount = 0;
+
+    if (typeof Gmail !== 'undefined' && Gmail.Users && Gmail.Users.Threads) {
+      let pageToken = null;
+      let fetched = [];
+
+      do {
+        const response = Gmail.Users.Threads.list('me', {
+          q: 'in:chats is:unread',
+          maxResults: 50,
+          pageToken: pageToken || undefined
+        });
+
+        if (response && response.threads) {
+          fetched = fetched.concat(response.threads);
+        }
+
+        pageToken = response && response.nextPageToken ? response.nextPageToken : null;
+      } while (pageToken && fetched.length < 50);
+
+      unreadCount = fetched.length;
+
+      fetched.slice(0, 50).forEach(function(threadSummary) {
+        try {
+          const threadDetail = Gmail.Users.Threads.get('me', threadSummary.id, {
+            format: 'full'
+          });
+
+          const messages = threadDetail.messages || [];
+          if (!messages.length) {
+            return;
+          }
+
+          const latestMessage = messages[messages.length - 1];
+          const headers = latestMessage.payload && latestMessage.payload.headers ? latestMessage.payload.headers : [];
+
+          function headerValue(name) {
+            const header = headers.find(function(h) {
+              return h.name === name;
+            });
+            return header ? header.value : '';
+          }
+
+          let author = headerValue('From') || headerValue('Sender');
+          const nameMatch = author && author.match(/^"?([^"<]+)"?\s*</);
+          if (nameMatch) {
+            author = nameMatch[1].trim();
+          } else {
+            const emailMatch = author && author.match(/<([^>]+)>/);
+            if (emailMatch) {
+              author = emailMatch[1];
+            }
+          }
+
+          const title = headerValue('Subject') || author || 'チャット';
+          let preview = (latestMessage.snippet || '').trim();
+          if (!preview && latestMessage.payload && latestMessage.payload.body && latestMessage.payload.body.data) {
+            preview = Utilities.newBlob(Utilities.base64Decode(latestMessage.payload.body.data)).getDataAsString();
+          }
+          preview = preview.replace(/\s+/g, ' ').trim();
+          if (preview.length > 140) {
+            preview = preview.substring(0, 140) + '…';
+          }
+
+          const timestamp = Number(latestMessage.internalDate) || new Date().getTime();
+          const permalink = 'https://mail.google.com/mail/u/0/#chat/' + threadSummary.id;
+
+          conversations.push({
+            title: title,
+            author: author || 'メンバー',
+            preview: preview || 'メッセージを取得できませんでした',
+            lastUpdated: timestamp,
+            permalink: permalink
+          });
+        } catch (threadError) {
+          Logger.log('Error parsing chat thread: ' + threadError.toString());
+        }
+      });
+    }
+
+    if (conversations.length === 0) {
+      const fallbackThreads = GmailApp.search('in:chats is:unread', 0, 50);
+      unreadCount = fallbackThreads.length;
+
+      fallbackThreads.forEach(function(thread) {
+        try {
+          const messages = thread.getMessages();
+          if (!messages || !messages.length) {
+            return;
+          }
+
+          const latestMessage = messages[messages.length - 1];
+          let author = latestMessage.getFrom();
+          const nameMatch = author && author.match(/^"?([^"<]+)"?\s*</);
+          if (nameMatch) {
+            author = nameMatch[1].trim();
+          } else {
+            const emailMatch = author && author.match(/<([^>]+)>/);
+            if (emailMatch) {
+              author = emailMatch[1];
+            }
+          }
+
+          let preview = '';
+          try {
+            preview = latestMessage.getPlainBody().replace(/\s+/g, ' ').trim();
+          } catch (err) {
+            preview = latestMessage.getSnippet() || '';
+          }
+
+          if (preview.length > 140) {
+            preview = preview.substring(0, 140) + '…';
+          }
+
+          let permalink = '';
+          try {
+            permalink = thread.getPermalink();
+          } catch (err) {
+            permalink = 'https://mail.google.com/mail/u/0/#chat/' + thread.getId();
+          }
+
+          conversations.push({
+            title: thread.getFirstMessageSubject() || author || 'チャット',
+            author: author || 'メンバー',
+            preview: preview || 'メッセージを取得できませんでした',
+            lastUpdated: latestMessage.getDate().getTime(),
+            permalink: permalink
+          });
+        } catch (fallbackError) {
+          Logger.log('Fallback chat parse error: ' + fallbackError.toString());
+        }
+      });
+    }
+
+    conversations.sort(function(a, b) {
+      return b.lastUpdated - a.lastUpdated;
+    });
+
+    return {
+      success: true,
+      unreadCount: unreadCount,
+      conversations: conversations.slice(0, 20)
+    };
+  } catch (error) {
+    Logger.log('Error fetching chat data: ' + error.toString());
+    return {
+      success: false,
+      unreadCount: 0,
+      conversations: [],
       error: error.toString()
     };
   }
