@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <? var __timerBaseUrl = (viewModel && viewModel.timerUrl) ? viewModel.timerUrl : ''; ?>
+  <? var __initialThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
+  <? var __timerReady = __timerBaseUrl && __timerBaseUrl.length > 0; ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NexusHub - 統合ワークスペースポータル</title>
@@ -203,7 +206,20 @@
     }
     .nav-btn .material-icons {
       font-size: 20px;
-    }    .nav-btn.timer:hover {
+    }
+
+    .nav-btn.timer {
+      background: rgba(188, 142, 219, 0.12);
+      color: var(--md-sys-color-primary);
+      border-color: transparent;
+    }
+
+    body[data-timer-ready="false"] .nav-btn.timer {
+      opacity: 0.65;
+      cursor: progress;
+    }
+
+    .nav-btn.timer:hover {
       border-color: transparent;
       background: color-mix(in srgb, var(--md-sys-color-primary) 90%, white);
     }
@@ -269,28 +285,98 @@
       letter-spacing: 0.04em;
     }
 
+    .theme-switcher {
+      position: relative;
+      display: inline-flex;
+    }
+
     .theme-toggle {
       border: none;
       border-radius: 999px;
       background: var(--md-sys-color-surface-container);
       color: var(--md-sys-color-on-surface);
-      padding: 8px 14px;
+      padding: 9px 18px;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       cursor: pointer;
-      box-shadow: 0 6px 16px rgba(32, 25, 70, 0.18);
-      transition: background var(--transition-duration) ease, transform var(--transition-duration) ease;
+      box-shadow: 0 10px 24px rgba(32, 25, 70, 0.18);
+      transition: background var(--transition-duration) ease, transform var(--transition-duration) ease, color var(--transition-duration) ease, box-shadow var(--transition-duration) ease;
     }
 
-    .theme-toggle:hover {
+    .theme-toggle:hover,
+    .theme-toggle:focus-visible {
       transform: translateY(-1px);
       background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-primary);
+      box-shadow: 0 16px 32px rgba(32, 25, 70, 0.24);
+      outline: none;
     }
 
     .theme-toggle .material-icons {
       font-size: 20px;
+      transition: transform var(--transition-duration) ease;
+    }
+
+    .theme-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      background: var(--md-sys-color-surface-container-highest);
+      border: 1px solid var(--md-sys-color-outline-variant);
+      border-radius: 18px;
+      padding: 12px;
+      min-width: 210px;
+      box-shadow: 0 28px 60px rgba(29, 27, 32, 0.25);
+      z-index: 60;
+      backdrop-filter: blur(18px);
+    }
+
+    .theme-menu.open {
+      display: flex;
+      animation: fadeInUp var(--transition-duration) ease;
+      transform-origin: top right;
+    }
+
+    .theme-option {
+      appearance: none;
+      border: none;
+      background: transparent;
+      padding: 10px 14px;
+      border-radius: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--md-sys-color-on-surface);
+      cursor: pointer;
+      transition: background var(--transition-duration) ease, color var(--transition-duration) ease;
+    }
+
+    .theme-option:hover,
+    .theme-option:focus-visible {
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-primary);
+      outline: none;
+    }
+
+    .theme-option.active {
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .summary-dashboard {
@@ -2353,7 +2439,7 @@
     }
   </style>
 </head>
-<body data-theme="light">
+<body data-theme="light" data-theme-mode="system" data-timer-ready="<?!= __timerReady ? 'true' : 'false' ?>">
   <div class="container">
     <header>
       <div class="header-left">
@@ -2402,10 +2488,17 @@
       </div>
       <div class="header-right">
         <div class="header-controls">
-          <button type="button" class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-            <span class="material-icons" aria-hidden="true">light_mode</span>
-            <span class="theme-label">ライト</span>
-          </button>
+          <div class="theme-switcher">
+            <button type="button" class="theme-toggle" id="themeToggle" aria-haspopup="listbox" aria-expanded="false" onclick="toggleThemeMenu(event)">
+              <span class="material-icons" aria-hidden="true">light_mode</span>
+              <span class="theme-label">ライト</span>
+            </button>
+            <div class="theme-menu" id="themeMenu" role="listbox" aria-label="表示モード">
+              <button type="button" class="theme-option" data-theme="light" role="option">ライトモード</button>
+              <button type="button" class="theme-option" data-theme="dark" role="option">ダークモード</button>
+              <button type="button" class="theme-option" data-theme="system" role="option">システムに合わせる</button>
+            </div>
+          </div>
           <div class="user-info">
             <div class="user-email" id="userEmail">読み込み中...</div>
           </div>
@@ -2773,64 +2866,179 @@
 
   <script>
     const THEME_STORAGE_KEY = 'nexushub-theme';
+    const THEME_SYSTEM_VALUE = 'system';
+    const SERVER_THEME_HINT = <?!= JSON.stringify(__initialThemeHint || '') ?>;
+    const EMBEDDED_TIMER_URL = <?!= JSON.stringify(__timerBaseUrl || '') ?>;
+    let timerLaunchUrl = EMBEDDED_TIMER_URL || null;
+    let timerUrlError = null;
+    let timerUrlRequested = false;
 
-    function applyTheme(theme) {
-      const nextTheme = theme === 'dark' ? 'dark' : 'light';
-      document.body.setAttribute('data-theme', nextTheme);
+    function resolvePreferredTheme(mode) {
+      if (mode === 'dark' || mode === 'light') {
+        return mode;
+      }
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return prefersDark ? 'dark' : 'light';
+    }
+
+    function applyTheme(mode, options) {
+      const config = options || {};
+      const normalized = (mode === 'dark' || mode === 'light' || mode === THEME_SYSTEM_VALUE) ? mode : THEME_SYSTEM_VALUE;
+      const resolvedTheme = resolvePreferredTheme(normalized);
+      document.body.setAttribute('data-theme', resolvedTheme);
+      document.body.setAttribute('data-theme-mode', normalized);
+      updateThemeToggle(resolvedTheme, normalized);
+
+      if (config.persist !== false) {
+        try {
+          localStorage.setItem(THEME_STORAGE_KEY, normalized);
+        } catch (err) {
+          console.warn('テーマの保存に失敗しました', err);
+        }
+      }
+    }
+
+    function updateThemeToggle(resolvedTheme, mode) {
       const toggleButton = document.getElementById('themeToggle');
       if (toggleButton) {
         const icon = toggleButton.querySelector('.material-icons');
         const label = toggleButton.querySelector('.theme-label');
         if (icon && label) {
-          if (nextTheme === 'dark') {
+          if (resolvedTheme === 'dark') {
             icon.textContent = 'dark_mode';
-            label.textContent = 'ダーク';
+            label.textContent = mode === THEME_SYSTEM_VALUE ? 'システム (ダーク)' : 'ダーク';
           } else {
             icon.textContent = 'light_mode';
-            label.textContent = 'ライト';
+            label.textContent = mode === THEME_SYSTEM_VALUE ? 'システム (ライト)' : 'ライト';
           }
         }
+      }
+
+      const menu = document.getElementById('themeMenu');
+      if (menu) {
+        const options = menu.querySelectorAll('.theme-option');
+        options.forEach(function(option) {
+          option.classList.toggle('active', option.getAttribute('data-theme') === mode);
+        });
       }
     }
 
     function initializeTheme() {
+      let stored = null;
       try {
-        const stored = localStorage.getItem(THEME_STORAGE_KEY);
-        if (stored) {
-          applyTheme(stored);
-          return;
-        }
+        stored = localStorage.getItem(THEME_STORAGE_KEY);
       } catch (err) {
         console.warn('テーマの読み込みに失敗しました', err);
       }
 
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      applyTheme(prefersDark ? 'dark' : 'light');
+      let initialMode = stored;
+      if (SERVER_THEME_HINT && (SERVER_THEME_HINT === 'dark' || SERVER_THEME_HINT === 'light')) {
+        initialMode = SERVER_THEME_HINT;
+      }
+
+      if (initialMode !== 'light' && initialMode !== 'dark' && initialMode !== THEME_SYSTEM_VALUE) {
+        initialMode = THEME_SYSTEM_VALUE;
+      }
+
+      applyTheme(initialMode, { persist: false });
     }
 
-    function toggleTheme() {
-      const current = document.body.getAttribute('data-theme') || 'light';
-      const next = current === 'light' ? 'dark' : 'light';
-      applyTheme(next);
-      try {
-        localStorage.setItem(THEME_STORAGE_KEY, next);
-      } catch (err) {
-        console.warn('テーマの保存に失敗しました', err);
+    function toggleThemeMenu(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const menu = document.getElementById('themeMenu');
+      const toggle = document.getElementById('themeToggle');
+      if (!menu || !toggle) {
+        return;
+      }
+
+      const isOpen = menu.classList.contains('open');
+      if (isOpen) {
+        closeThemeMenu();
+      } else {
+        menu.classList.add('open');
+        toggle.setAttribute('aria-expanded', 'true');
+        document.addEventListener('click', closeThemeMenuOnOutside);
+        document.addEventListener('keydown', handleThemeMenuKeydown);
       }
     }
 
+    function closeThemeMenu() {
+      const menu = document.getElementById('themeMenu');
+      const toggle = document.getElementById('themeToggle');
+      if (menu) {
+        menu.classList.remove('open');
+      }
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+      document.removeEventListener('click', closeThemeMenuOnOutside);
+      document.removeEventListener('keydown', handleThemeMenuKeydown);
+    }
+
+    function closeThemeMenuOnOutside(event) {
+      const menu = document.getElementById('themeMenu');
+      const toggle = document.getElementById('themeToggle');
+      if (!menu) {
+        return;
+      }
+      if (event && ((menu.contains(event.target)) || (toggle && toggle.contains(event.target)))) {
+        return;
+      }
+      closeThemeMenu();
+    }
+
+    function handleThemeMenuKeydown(event) {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        closeThemeMenu();
+      }
+    }
+
+    function setupThemeMenu() {
+      const menu = document.getElementById('themeMenu');
+      if (!menu) {
+        return;
+      }
+
+      menu.addEventListener('click', function(event) {
+        const option = event.target.closest('.theme-option');
+        if (!option) {
+          return;
+        }
+        const selectedMode = option.getAttribute('data-theme');
+        applyTheme(selectedMode);
+        closeThemeMenu();
+      });
+    }
+
     if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
-        const stored = (() => {
-          try { return localStorage.getItem(THEME_STORAGE_KEY); } catch (err) { return null; }
-        })();
-        if (!stored) {
-          applyTheme(event.matches ? 'dark' : 'light');
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', function(event) {
+        const currentMode = document.body.getAttribute('data-theme-mode') || THEME_SYSTEM_VALUE;
+        if (currentMode === THEME_SYSTEM_VALUE) {
+          applyTheme(currentMode, { persist: false });
+        } else {
+          updateThemeToggle(event.matches ? 'dark' : 'light', currentMode);
         }
       });
     }
 
+    window.addEventListener('storage', function(event) {
+      if (event.key === THEME_STORAGE_KEY) {
+        const nextMode = event.newValue || THEME_SYSTEM_VALUE;
+        applyTheme(nextMode, { persist: false });
+      }
+    });
+
     initializeTheme();
+    setupThemeMenu();
+
+    if (timerLaunchUrl) {
+      document.body.setAttribute('data-timer-ready', 'true');
+    } else {
+      ensureTimerUrl();
+    }
 
     let currentYear = new Date().getFullYear();
     let currentMonth = new Date().getMonth() + 1;
@@ -2853,6 +3061,56 @@
     let collapsedFolders = {};
     let todayEventsData = [];
     let nextEventData = null;
+
+    function ensureTimerUrl() {
+      if (timerLaunchUrl) {
+        document.body.setAttribute('data-timer-ready', 'true');
+        return;
+      }
+
+      if (timerUrlRequested) {
+        return;
+      }
+
+      if (typeof google === 'undefined' || !google.script || !google.script.run) {
+        return;
+      }
+
+      timerUrlRequested = true;
+      document.body.setAttribute('data-timer-ready', 'false');
+
+      google.script.run
+        .withSuccessHandler(function(url) {
+          timerLaunchUrl = url;
+          timerUrlError = null;
+          timerUrlRequested = false;
+          document.body.setAttribute('data-timer-ready', url ? 'true' : 'false');
+        })
+        .withFailureHandler(function(error) {
+          timerUrlError = error;
+          timerUrlRequested = false;
+          document.body.setAttribute('data-timer-ready', timerLaunchUrl ? 'true' : 'false');
+          console.error('タイマーURLの取得に失敗しました', error);
+        })
+        .getTimerUrl();
+    }
+
+    function buildTimerUrlForTheme(baseUrl, theme) {
+      if (!baseUrl) {
+        return '';
+      }
+
+      try {
+        const url = new URL(baseUrl);
+        if (theme) {
+          url.searchParams.set('theme', theme);
+        }
+        return url.toString();
+      } catch (error) {
+        const separator = baseUrl.indexOf('?') === -1 ? '?' : '&';
+        return baseUrl + separator + 'theme=' + encodeURIComponent(theme);
+      }
+    }
 
     function updateClock() {
       const now = new Date();
@@ -2881,28 +3139,25 @@
     setInterval(updateClock, 1000);
 
     function openTimerWindow() {
-      const features = 'width=420,height=520,resizable=yes,scrollbars=yes';
-      const timerWindow = window.open('', '_blank', features);
-
-      if (!timerWindow) {
-        alert('ポップアップがブロックされました。許可してください。');
+      if (!timerLaunchUrl) {
+        ensureTimerUrl();
+        const errorMessage = timerUrlError && timerUrlError.message ? String(timerUrlError.message) : '';
+        const fallback = timerUrlError
+          ? 'タイマーURLの取得に失敗しました。デプロイ設定を確認してください。'
+          : 'タイマーを準備しています。数秒後にもう一度お試しください。';
+        alert(errorMessage ? fallback + '\n' + errorMessage : fallback);
         return;
       }
 
-      const currentTheme = document.body.getAttribute('data-theme') || 'light';
-      const placeholderBg = currentTheme === 'dark' ? '#211f26' : '#f3edf7';
-      const placeholderColor = currentTheme === 'dark' ? '#e6e0e9' : '#332d41';
+      const mode = document.body.getAttribute('data-theme-mode') || THEME_SYSTEM_VALUE;
+      const effectiveTheme = resolvePreferredTheme(mode);
+      const timerUrl = buildTimerUrlForTheme(timerLaunchUrl, effectiveTheme);
+      const features = 'width=420,height=560,resizable=yes,scrollbars=yes';
 
-      timerWindow.document.write('<style>body{font-family:\'Noto Sans JP\',sans-serif;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:' + placeholderBg + ';color:' + placeholderColor + ';}span{opacity:0.7;font-size:14px;}</style><span>タイマーを読み込んでいます...</span>');
-
-      google.script.run
-        .withSuccessHandler(function(url) {
-          timerWindow.location = url;
-        })
-        .withFailureHandler(function(error) {
-          timerWindow.document.body.innerHTML = '<div style="padding:24px;text-align:center;">タイマーを開けませんでした。<br>' + (error && error.message ? error.message : '') + '</div>';
-        })
-        .getTimerUrl();
+      const timerWindow = window.open(timerUrl, '_blank', features);
+      if (!timerWindow) {
+        alert('ポップアップがブロックされました。許可してください。');
+      }
     }
 
     function scrollToChat() {

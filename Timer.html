@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <? var __timerThemeHint = (viewModel && viewModel.theme) ? viewModel.theme : ''; ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NexusHub タイマー</title>
@@ -231,7 +232,7 @@
     }
   </style>
 </head>
-<body>
+<body data-theme="<?!= __timerThemeHint === 'dark' ? 'dark' : 'light' ?>">
   <main class="timer-surface">
     <div class="timer-header">
       <h1><span class="material-icons">timer</span>カスタムタイマー</h1>
@@ -284,36 +285,47 @@
 
   <script>
     const THEME_STORAGE_KEY = 'nexushub-theme';
+    const THEME_SYSTEM_VALUE = 'system';
+    const LAUNCHED_THEME = <?!= JSON.stringify(__timerThemeHint || '') ?>;
 
-    function syncTheme() {
-      let theme = 'light';
+    function getStoredThemeMode() {
       try {
-        const stored = localStorage.getItem(THEME_STORAGE_KEY);
-        if (stored) {
-          theme = stored;
-        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          theme = 'dark';
-        }
+        return localStorage.getItem(THEME_STORAGE_KEY);
       } catch (err) {
-        console.warn('テーマ同期に失敗しました', err);
+        console.warn('テーマ情報の取得に失敗しました', err);
+        return null;
       }
-      document.body.setAttribute('data-theme', theme);
     }
 
-    syncTheme();
+    function syncTheme(preferred) {
+      let mode = preferred;
+      if (mode !== 'dark' && mode !== 'light') {
+        const stored = getStoredThemeMode();
+        if (stored === 'dark' || stored === 'light') {
+          mode = stored;
+        } else {
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          mode = prefersDark ? 'dark' : 'light';
+        }
+      }
+
+      document.body.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
+    }
+
+    syncTheme(LAUNCHED_THEME);
 
     window.addEventListener('storage', function(event) {
       if (event.key === THEME_STORAGE_KEY) {
-        syncTheme();
+        const mode = event.newValue;
+        syncTheme(mode === 'dark' || mode === 'light' ? mode : null);
       }
     });
 
     if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
-        const stored = (() => {
-          try { return localStorage.getItem(THEME_STORAGE_KEY); } catch (err) { return null; }
-        })();
-        if (!stored) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', function() {
+        const stored = getStoredThemeMode();
+        if (!stored || stored === THEME_SYSTEM_VALUE) {
           syncTheme();
         }
       });
