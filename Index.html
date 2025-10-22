@@ -3152,7 +3152,7 @@
       const mode = document.body.getAttribute('data-theme-mode') || THEME_SYSTEM_VALUE;
       const effectiveTheme = resolvePreferredTheme(mode);
       const timerUrl = buildTimerUrlForTheme(timerLaunchUrl, effectiveTheme);
-      const features = 'width=420,height=560,resizable=yes,scrollbars=yes';
+      const features = 'width=420,height=560,resizable=yes,scrollbars=yes,noopener=yes,noreferrer=yes';
 
       const timerWindow = window.open(timerUrl, '_blank', features);
       if (!timerWindow) {
